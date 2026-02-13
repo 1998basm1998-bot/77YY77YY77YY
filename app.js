@@ -1,11 +1,158 @@
-import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
-import { getFirestore, collection, addDoc, getDocs, deleteDoc, doc, query, where, enableIndexedDbPersistence, setDoc, getDoc, updateDoc, writeBatch } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
-import { firebaseConfig, hashPass } from './config.js';
+// === وضع العمل دون اتصال (Local Mode) ===
+// تم استبدال استيراد Firebase بمحرك تخزين محلي للتجربة
+import { hashPass } from './config.js';
 
-const app = initializeApp(firebaseConfig);
-const db = getFirestore(app);
+// --- محرك قاعدة البيانات المحلية (Local Storage Engine) ---
+const DB_KEY = 'debt_app_offline_db_v1';
 
-enableIndexedDbPersistence(db).catch((err) => { console.log(err.code); });
+// دالة لجلب البيانات من الذاكرة
+function getLocalDB() {
+    const defaultDB = { customers: [], transactions: [], inventory: [], settings: {} };
+    const data = localStorage.getItem(DB_KEY);
+    return data ? JSON.parse(data) : defaultDB;
+}
+
+// دالة لحفظ البيانات في الذاكرة
+function saveLocalDB(data) {
+    localStorage.setItem(DB_KEY, JSON.stringify(data));
+}
+
+// --- محاكاة دوال Firebase ---
+const app = {}; // وهمي
+const db = {};  // وهمي
+
+// دالة وهمية لتفعيل الكاش (لا نحتاجها محلياً)
+const enableIndexedDbPersistence = async () => {}; 
+
+// تحديد اسم المجموعة
+const collection = (db, name) => name;
+
+// إضافة مستند جديد
+const addDoc = async (colName, data) => {
+    const d = getLocalDB();
+    if (!d[colName]) d[colName] = [];
+    
+    const newId = Date.now().toString() + Math.floor(Math.random() * 1000);
+    const docData = { ...data, id: newId }; // تخزين ID
+    
+    d[colName].push(docData);
+    saveLocalDB(d);
+    
+    return { id: newId };
+};
+
+// جلب المستندات
+const getDocs = async (queryOrColName) => {
+    const d = getLocalDB();
+    let results = [];
+    
+    // إذا كان المدخل استعلام (Query)
+    if (typeof queryOrColName === 'object' && queryOrColName.colName) {
+        const list = d[queryOrColName.colName] || [];
+        // تصفية النتائج بناء على الشروط
+        results = list.filter(item => {
+            if (queryOrColName.filterType === '==') return item[queryOrColName.field] == queryOrColName.value;
+            return true;
+        });
+    } 
+    // إذا كان المدخل اسم مجموعة فقط
+    else if (typeof queryOrColName === 'string') {
+        results = d[queryOrColName] || [];
+    }
+
+    // إرجاع البيانات بتنسيق يشبه Firebase Snapshot
+    return {
+        docs: results.map(item => ({
+            id: item.id,
+            data: () => item
+        })),
+        forEach: (callback) => {
+            results.forEach(item => callback({ id: item.id, data: () => item }));
+        }
+    };
+};
+
+// تحديد مستند معين
+const doc = (db, colName, id) => ({ colName, id });
+
+// الاستعلام (Query)
+const query = (colName, whereClause) => {
+    return {
+        colName: colName,
+        field: whereClause.field,
+        filterType: whereClause.filterType,
+        value: whereClause.value
+    };
+};
+
+// شرط البحث (Where)
+const where = (field, filterType, value) => ({ field, filterType, value });
+
+// حذف مستند
+const deleteDoc = async (docRef) => {
+    const d = getLocalDB();
+    if (d[docRef.colName]) {
+        d[docRef.colName] = d[docRef.colName].filter(item => item.id !== docRef.id);
+        saveLocalDB(d);
+    }
+};
+
+// تحديث مستند
+const updateDoc = async (docRef, newData) => {
+    const d = getLocalDB();
+    if (d[docRef.colName]) {
+        const index = d[docRef.colName].findIndex(item => item.id === docRef.id);
+        if (index !== -1) {
+            d[docRef.colName][index] = { ...d[docRef.colName][index], ...newData };
+            saveLocalDB(d);
+        }
+    }
+};
+
+// جلب مستند واحد
+const getDoc = async (docRef) => {
+    const d = getLocalDB();
+    let item = null;
+    if (d[docRef.colName]) {
+        // في الإعدادات، الاسم هو المعرف أحياناً
+        if(docRef.colName === 'settings') item = d.settings[docRef.id]; 
+        else item = d[docRef.colName].find(i => i.id === docRef.id);
+    }
+    return {
+        exists: () => !!item,
+        data: () => item || {}
+    };
+};
+
+// حفظ مستند (Set) - يستخدم للإعدادات عادة
+const setDoc = async (docRef, data, options) => {
+    const d = getLocalDB();
+    if (docRef.colName === 'settings') {
+        if (!d.settings) d.settings = {};
+        if (options && options.merge) {
+            d.settings[docRef.id] = { ...d.settings[docRef.id], ...data };
+        } else {
+            d.settings[docRef.id] = data;
+        }
+        saveLocalDB(d);
+    }
+};
+
+// الدفعات (Batch) - محاكاة مبسطة
+const writeBatch = (db) => {
+    return {
+        update: (ref, data) => updateDoc(ref, data),
+        set: (ref, data) => addDoc(ref.colName, data), // تبسيط
+        delete: (ref) => deleteDoc(ref),
+        commit: async () => true
+    };
+};
+
+// --- نهاية المحرك المحلي ---
+
+// بداية كود التطبيق الأصلي (مع تعديلات طفيفة لاستخدام المحرك المحلي)
+
+enableIndexedDbPersistence(db).catch((err) => { console.log("Local Mode Active"); });
 
 let currentCustomer = null;
 let currentTransType = '';
@@ -138,7 +285,7 @@ async function loadDashboard() {
         renderNotifications(overdueList);
     } catch (error) {
         console.error(error);
-        if(navigator.onLine) alert("حدث خطأ في الاتصال: " + error.message);
+        if(navigator.onLine) alert("ملاحظة: أنت تعمل على الوضع المحلي (بدون إنترنت)");
     }
 }
 
@@ -412,10 +559,10 @@ window.deleteCustomer = async function() {
 
     try {
         await deleteDoc(doc(db, "customers", currentCustomer.firebaseId));
-        const q = query(collection(db, "transactions"), where("customerId", "==", currentCustomer.id));
-        const snap = await getDocs(q);
-        snap.forEach(async (d) => {
-            await deleteDoc(doc(db, "transactions", d.id));
+        // حذف المعاملات يدوياً في الوضع المحلي
+        const transToDelete = await getDocs(query(collection(db, "transactions"), where("customerId", "==", currentCustomer.id)));
+        transToDelete.forEach(async (t) => {
+            await deleteDoc(doc(db, "transactions", t.id));
         });
 
         alert("تم الحذف بنجاح");
@@ -491,25 +638,12 @@ window.wipeSystem = async function() {
     document.body.style.cursor = 'wait';
     
     try {
-        const batchSize = 100; // حجم الدفعة
-        const collections = ["customers", "transactions", "inventory", "settings"];
-
-        for (const colName of collections) {
-            const snapshot = await getDocs(collection(db, colName));
-            const docs = snapshot.docs;
-            
-            // الحذف على دفعات
-            for (let i = 0; i < docs.length; i += batchSize) {
-                const batch = writeBatch(db);
-                docs.slice(i, i + batchSize).forEach(doc => {
-                    batch.delete(doc.ref);
-                });
-                await batch.commit();
-            }
-        }
-
+        // حذف البيانات من التخزين المحلي مباشرة
+        localStorage.removeItem(DB_KEY);
+        
         alert("تم حذف جميع البيانات بنجاح.\nسيعود التطبيق لحالة المصنع.");
-        localStorage.clear(); // مسح البيانات المحلية (كلمة المرور واسم المتجر)
+        localStorage.removeItem('store_name');
+        localStorage.removeItem('admin_pass');
         location.reload();
 
     } catch(e) {
@@ -678,8 +812,7 @@ window.saveTransaction = async function() {
     try {
         // إذا كان بيع وفيه مواد مخزنية، نقوم بإنقاص الكمية وزيادة عدد المبيعات
         if(currentTransType === 'sale' && cartItems.length > 0) {
-            const batch = writeBatch(db);
-            // إنقاص المخزون وزيادة المباع
+            // محاكاة batch يدوياً
             for (const c of cartItems) {
                 const itemRef = doc(db, "inventory", c.firebaseId);
                 const currentInv = allInventory.find(i => i.id === c.id);
@@ -688,11 +821,10 @@ window.saveTransaction = async function() {
                 const currentSold = parseInt(currentInv.soldQty || 0);
                 const newSold = currentSold + parseInt(c.qty);
                 
-                batch.update(itemRef, { qty: newQty, soldQty: newSold });
+                await updateDoc(itemRef, { qty: newQty, soldQty: newSold });
             }
             // إضافة المعاملة
-            const transRef = doc(collection(db, "transactions"));
-            batch.set(transRef, {
+            await addDoc(collection(db, "transactions"), {
                 customerId: currentCustomer.id,
                 type: currentTransType,
                 amount,
@@ -702,7 +834,6 @@ window.saveTransaction = async function() {
                 timestamp: new Date().toISOString()
             });
             
-            await batch.commit();
             loadInventory(); // تحديث الواجهة
 
         } else {
