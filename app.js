@@ -774,24 +774,34 @@ window.updateInventoryDatalist = function(txt) {
 window.addItemToCart = function() {
     const nameInput = document.getElementById('saleItemSearch');
     const qtyInput = document.getElementById('saleItemQty');
-    
+    const saleTypeInput = document.getElementById('saleTypeSelect'); // العنصر الجديد
+
     const name = nameInput.value;
     const qty = parseInt(qtyInput.value);
-    
+    const saleType = saleTypeInput ? saleTypeInput.value : 'retail'; // قراءة نوع البيع
+
     const itemRef = allInventory.find(i => i.name === name);
     
     if(!itemRef) return alert("السلعة غير موجودة بالمخزون");
     if(qty > itemRef.qty) return alert(`الكمية غير متوفرة! المتاح: ${itemRef.qty}`);
     if(qty <= 0) return alert("الكمية يجب أن تكون 1 أو أكثر");
 
+    // تحديد السعر بناءً على نوع البيع
+    let selectedPrice = itemRef.price;
+    let typeLabel = "مفرد";
+    if(saleType === 'wholesale') {
+        selectedPrice = itemRef.wholesalePrice || itemRef.price; // إذا لم يوجد سعر جملة نستخدم المفرد
+        typeLabel = "جملة";
+    }
+
     // إضافة للسلة
     cartItems.push({
         id: itemRef.id,
         firebaseId: itemRef.firebaseId,
-        name: itemRef.name,
-        price: itemRef.price,
+        name: `${itemRef.name} (${typeLabel})`, // إضافة نوع البيع لاسم المادة لتوضيحها بالفاتورة
+        price: selectedPrice,
         qty: qty,
-        total: itemRef.price * qty
+        total: selectedPrice * qty
     });
 
     // تفريغ الحقول
