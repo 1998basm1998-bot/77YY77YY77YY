@@ -195,6 +195,12 @@
             <h3 id="transTitle">عملية جديدة</h3>
             
             <div id="saleSection" class="hidden">
+                <div class="flex" style="margin-bottom: 5px;">
+                    <select id="saleTypeSelect" class="gsap-input" style="flex:1; padding: 10px;">
+                        <option value="retail">حساب بسعر المفرد</option>
+                        <option value="wholesale">حساب بسعر الجملة</option>
+                    </select>
+                </div>
                 <div class="flex">
                     <input list="inventoryDatalist" id="saleItemSearch" placeholder="ابحث عن سلعة..." class="gsap-input" style="flex:2">
                     <datalist id="inventoryDatalist"></datalist>
