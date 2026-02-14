@@ -126,22 +126,20 @@
                         <p id="custPhone">...</p>
                         <div class="balance-display" id="custBalance" style="font-size: 2rem; font-weight: bold; color: var(--danger);">0.00</div>
                         
-                        <div class="flex flex-between no-print center-flex">
+                        <div class="flex flex-between no-print center-flex mt-2 mb-2">
                             <button class="btn btn-danger gsap-btn" onclick="openTransModal('debt')">➕ دين</button>
                             <button class="btn btn-success gsap-btn" onclick="openTransModal('payment')">💰 تسديد</button>
                             <button class="btn btn-primary gsap-btn" onclick="openTransModal('sale')">🛒 بيع</button>
-                        </div>
-                        
-                        <div class="mt-2 no-print link-box" style="background: rgba(255,255,255,0.5); padding: 10px; border-radius: 10px;">
-                            <small>🔑 رمز دخول الزبون:</small>
-                            <h2 id="custPasswordDisplay" style="margin: 5px 0; letter-spacing: 5px; color: var(--primary);">---</h2>
                         </div>
                     </div>
 
                     <div class="card glass gsap-target">
                         <div class="flex flex-between">
                             <h3>سجل العمليات</h3>
-                            <button class="btn btn-sm btn-primary no-print gsap-btn" onclick="window.print()">🖨️</button>
+                            <div class="flex gap-2">
+                                <button class="btn btn-sm btn-success no-print gsap-btn" onclick="shareAccountWhatsApp()" style="background: #25D366; border: none;">📱 مشاركة الحساب</button>
+                                <button class="btn btn-sm btn-primary no-print gsap-btn" onclick="window.print()">🖨️</button>
+                            </div>
                         </div>
                         <div id="transactionsList"></div>
                     </div>
@@ -184,9 +182,6 @@
                     <input type="number" id="newCustReminder" value="30" class="gsap-input">
                 </div>
             </div>
-            
-            <label>رمز الدخول (3 أرقام):</label>
-            <input type="number" id="newCustPass" placeholder="اتركه فارغاً للتوليد التلقائي" class="gsap-input" style="font-weight: bold; text-align: center; letter-spacing: 3px;">
             
             <div class="flex flex-between">
                 <button class="btn btn-danger gsap-btn" onclick="closeModal('modal-add-customer')">إلغاء</button>
@@ -234,8 +229,9 @@
             <input type="text" id="invName" placeholder="اسم السلعة" class="gsap-input">
             <div class="flex">
                 <input type="number" id="invPurchasePrice" placeholder="سعر الشراء" class="gsap-input">
-                <input type="number" id="invPrice" placeholder="سعر البيع" class="gsap-input">
+                <input type="number" id="invPrice" placeholder="سعر المفرد" class="gsap-input">
             </div>
+            <input type="number" id="invWholesalePrice" placeholder="سعر البيع الجملة" class="gsap-input">
             <input type="number" id="invQty" placeholder="الكمية الحالية" class="gsap-input">
             <div class="flex flex-between">
                 <button class="btn btn-danger gsap-btn" onclick="closeModal('modal-inventory-item')">إلغاء</button>
@@ -259,7 +255,10 @@
                 <span>💰 شراء:</span> <span id="viewInvBuy">0</span>
             </div>
             <div class="flex flex-between" style="color:#777">
-                <span>💵 بيع:</span> <span id="viewInvSell">0</span>
+                <span>💵 مفرد:</span> <span id="viewInvSell">0</span>
+            </div>
+            <div class="flex flex-between" style="color:#777">
+                <span>📦 جملة:</span> <span id="viewInvWholesale">0</span>
             </div>
             
             <div style="background: rgba(255,255,255,0.5); padding:10px; border-radius:10px; margin-top:15px;">
