@@ -341,6 +341,7 @@ window.viewInventoryItem = function(id) {
     const sold = item.soldQty || 0;
     const buyPrice = parseFloat(item.purchasePrice) || 0;
     const sellPrice = parseFloat(item.price) || 0;
+    const wholesalePrice = parseFloat(item.wholesalePrice) || 0;
     
     // حساب الربح: (سعر البيع - سعر الشراء) * العدد المباع
     const profitPerUnit = sellPrice - buyPrice;
@@ -349,6 +350,7 @@ window.viewInventoryItem = function(id) {
     document.getElementById('viewInvSold').innerText = sold;
     document.getElementById('viewInvBuy').innerText = formatCurrency(buyPrice, 'IQD');
     document.getElementById('viewInvSell').innerText = formatCurrency(sellPrice, 'IQD');
+    document.getElementById('viewInvWholesale').innerText = formatCurrency(wholesalePrice, 'IQD');
     
     document.getElementById('viewInvProfit').innerText = formatCurrency(totalProfit, 'IQD');
     
@@ -359,28 +361,30 @@ window.openInventoryModal = function() {
     editingInvId = null;
     document.getElementById('invModalTitle').innerText = "سلعة جديدة";
     document.getElementById('invName').value = '';
-    document.getElementById('invPurchasePrice').value = ''; // تفريغ سعر الشراء
+    document.getElementById('invPurchasePrice').value = ''; 
     document.getElementById('invPrice').value = '';
+    document.getElementById('invWholesalePrice').value = '';
     document.getElementById('invQty').value = '';
     window.showModal('modal-inventory-item');
 }
 
 window.saveInventoryItem = async function() {
     const name = document.getElementById('invName').value;
-    const purchasePrice = parseFloat(document.getElementById('invPurchasePrice').value); // قراءة سعر الشراء
+    const purchasePrice = parseFloat(document.getElementById('invPurchasePrice').value); 
     const price = parseFloat(document.getElementById('invPrice').value);
+    const wholesalePrice = parseFloat(document.getElementById('invWholesalePrice').value);
     const qty = parseInt(document.getElementById('invQty').value);
     
-    if(!name || isNaN(price) || isNaN(qty) || isNaN(purchasePrice)) return alert("أكمل جميع البيانات");
+    if(!name || isNaN(price) || isNaN(qty) || isNaN(purchasePrice) || isNaN(wholesalePrice)) return alert("أكمل جميع البيانات");
 
     try {
         if(editingInvId) {
             if(!verifyAdminCode()) return; // حماية التعديل
             const item = allInventory.find(i => i.id === editingInvId);
-            await updateDoc(doc(db, "inventory", item.firebaseId), { name, purchasePrice, price, qty });
+            await updateDoc(doc(db, "inventory", item.firebaseId), { name, purchasePrice, price, wholesalePrice, qty });
         } else {
             await addDoc(collection(db, "inventory"), {
-                id: Date.now().toString(), name, purchasePrice, price, qty, soldQty: 0
+                id: Date.now().toString(), name, purchasePrice, price, wholesalePrice, qty, soldQty: 0
             });
         }
         window.closeModal('modal-inventory-item');
@@ -394,8 +398,9 @@ window.editInventoryItem = function(id) {
     editingInvId = id; // سيطلب الرمز عند الحفظ
     document.getElementById('invModalTitle').innerText = "تعديل سلعة";
     document.getElementById('invName').value = item.name;
-    document.getElementById('invPurchasePrice').value = item.purchasePrice || ''; // عرض سعر الشراء
+    document.getElementById('invPurchasePrice').value = item.purchasePrice || ''; 
     document.getElementById('invPrice').value = item.price;
+    document.getElementById('invWholesalePrice').value = item.wholesalePrice || '';
     document.getElementById('invQty').value = item.qty;
     window.showModal('modal-inventory-item');
 }
@@ -474,7 +479,6 @@ window.openAddModal = function() {
     document.getElementById('modalCustTitle').innerText = "زبون جديد";
     document.getElementById('newCustName').value = '';
     document.getElementById('newCustPhone').value = '';
-    document.getElementById('newCustPass').value = '';
     window.showModal('modal-add-customer');
 }
 
@@ -483,27 +487,17 @@ window.saveCustomer = async function() {
     const phone = document.getElementById('newCustPhone').value;
     const currency = document.getElementById('newCustCurrency').value;
     const reminderDays = document.getElementById('newCustReminder').value;
-    let pass = document.getElementById('newCustPass').value;
     
     if(!name) return alert('الاسم مطلوب');
 
     // إذا كان تعديل، نطلب الرمز
     if (editingCustId && !verifyAdminCode()) return;
 
-    if (!pass) {
-        do {
-            pass = Math.floor(100 + Math.random() * 900).toString();
-        } while (allCustomers.some(c => c.password === pass && c.id !== editingCustId));
-    } else {
-        const exists = allCustomers.some(c => c.password === pass && c.id !== editingCustId);
-        if (exists) return alert("هذا الرمز مستخدم بالفعل لزبون آخر! اختر رمزاً آخر.");
-    }
-
     try {
         if (editingCustId) {
             const customerRef = allCustomers.find(c => c.id === editingCustId);
             updateDoc(doc(db, "customers", customerRef.firebaseId), {
-                name, phone, currency, reminderDays, password: pass
+                name, phone, currency, reminderDays
             });
             alert("تم تعديل بيانات الزبون");
         } else {
@@ -511,7 +505,6 @@ window.saveCustomer = async function() {
             addDoc(collection(db, "customers"), {
                 id, name, phone, currency, 
                 reminderDays: reminderDays || 30,
-                password: pass,
                 created: new Date().toISOString()
             });
         }
@@ -539,13 +532,13 @@ window.openCustomer = async function(id) {
         if (t.type === 'payment') realTimeBalance -= amt;
     });
 
+    currentCustomer.realTimeBalance = realTimeBalance; // تحديث حالة الرصيد للزبون الحالي
+
     document.getElementById('view-customer').classList.remove('hidden');
     document.getElementById('custName').innerText = customer.name;
     document.getElementById('custPhone').innerText = customer.phone || '';
     
     document.getElementById('custBalance').innerText = formatCurrency(realTimeBalance, customer.currency);
-    
-    document.getElementById('custPasswordDisplay').innerText = customer.password || '---';
 
     renderTransactions(trans, customer.currency);
 }
@@ -580,9 +573,47 @@ window.editCustomer = function() {
     document.getElementById('newCustPhone').value = currentCustomer.phone;
     document.getElementById('newCustCurrency').value = currentCustomer.currency;
     document.getElementById('newCustReminder').value = currentCustomer.reminderDays;
-    document.getElementById('newCustPass').value = currentCustomer.password;
     
     window.showModal('modal-add-customer');
+}
+
+// === مشاركة الواتساب للزبون والمحاسبة بالكامل ===
+window.shareAccountWhatsApp = function() {
+    if(!currentCustomer || !currentCustomer.phone) {
+        return alert("الزبون لا يملك رقم هاتف مسجل للقيام بالمراسلة!");
+    }
+    const storeName = localStorage.getItem('store_name') || 'إدارة المتجر';
+    const storeWa = localStorage.getItem('store_whatsapp') || 'غير محدد';
+    const balance = formatCurrency(currentCustomer.realTimeBalance || 0, currentCustomer.currency);
+
+    const text = `مرحباً ${currentCustomer.name} 🌹\nنود إعلامكم بكشف الحساب الحالي لدى: ${storeName}\n\n💰 المبلغ المتبقي (الديون): ${balance}\n\n📞 للتواصل والاستفسار: ${storeWa}\nشكراً لتعاملكم معنا!`;
+
+    const phone = currentCustomer.phone.replace(/[^0-9]/g, '');
+    let formattedPhone = phone;
+    if(formattedPhone.startsWith('0')) formattedPhone = '964' + formattedPhone.substring(1);
+
+    const url = `https://wa.me/${formattedPhone}?text=${encodeURIComponent(text)}`;
+    window.open(url, '_blank');
+}
+
+window.shareTransactionWhatsApp = function(type, amount, note, date) {
+    if(!currentCustomer || !currentCustomer.phone) {
+        return alert("الزبون لا يملك رقم هاتف مسجل للمشاركة!");
+    }
+    const storeName = localStorage.getItem('store_name') || 'إدارة المتجر';
+    const storeWa = localStorage.getItem('store_whatsapp') || 'غير محدد';
+    const formattedAmount = formatCurrency(amount, currentCustomer.currency);
+    const currentBalance = formatCurrency(currentCustomer.realTimeBalance || 0, currentCustomer.currency);
+    let typeName = type === 'debt' ? 'دين جديد' : (type === 'payment' ? 'دفعة تسديد' : 'فاتورة مبيعات');
+
+    const text = `مرحباً ${currentCustomer.name} 🌹\nإشعار بعملية جديدة من: ${storeName}\n\n📝 نوع العملية: ${typeName}\n💵 المبلغ: ${formattedAmount}\n📅 التاريخ: ${date}\n📌 التفاصيل: ${note || 'لا يوجد'}\n\n━━━━━━━━━━━━\n💰 إجمالي الديون المتبقية: ${currentBalance}\n━━━━━━━━━━━━\n\n📞 للتواصل: ${storeWa}`;
+
+    const phone = currentCustomer.phone.replace(/[^0-9]/g, '');
+    let formattedPhone = phone;
+    if(formattedPhone.startsWith('0')) formattedPhone = '964' + formattedPhone.substring(1);
+
+    const url = `https://wa.me/${formattedPhone}?text=${encodeURIComponent(text)}`;
+    window.open(url, '_blank');
 }
 
 window.downloadBackup = async function() {
@@ -660,12 +691,16 @@ window.saveStoreSettings = async function() {
         wa = '964' + wa.substring(1);
     }
     await setDoc(doc(db, "settings", "info"), { whatsapp: wa }, { merge: true });
+    localStorage.setItem('store_whatsapp', wa);
     alert("تم حفظ الواتساب");
 }
 
 async function loadSettings() {
     const s = await getDoc(doc(db, "settings", "info"));
-    if(s.exists()) document.getElementById('storeWhatsapp').value = s.data().whatsapp || '';
+    if(s.exists()) {
+        document.getElementById('storeWhatsapp').value = s.data().whatsapp || '';
+        localStorage.setItem('store_whatsapp', s.data().whatsapp || '');
+    }
 }
 
 window.changeAdminPassReal = function() {
@@ -871,7 +906,8 @@ function renderTransactions(transactions, currency) {
             </div>
             <div style="text-align:left">
                 <strong class="${colorClass}">${window.formatCurrency(t.amount, currency)}</strong>
-                <div class="mt-2">
+                <div class="mt-2 flex gap-2">
+                    <button class="btn btn-sm btn-success" onclick="shareTransactionWhatsApp('${t.type}', ${t.amount}, '${t.item || t.note || ''}', '${t.date}')" style="padding:2px 8px; font-size:0.7rem; background: #25D366; border: none;">💬</button>
                     <button class="btn btn-sm btn-warning" onclick="editTransaction('${t.firebaseId}', ${t.amount})" style="padding:2px 8px; font-size:0.7rem;">✏️</button>
                     <button class="btn btn-sm btn-danger" onclick="deleteTransaction('${t.firebaseId}')" style="padding:2px 8px; font-size:0.7rem;">🗑️</button>
                 </div>
