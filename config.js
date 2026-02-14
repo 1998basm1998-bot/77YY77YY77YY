@@ -8,9 +8,6 @@ export const firebaseConfig = {
     appId: ""
 };
 
-// ⚠️ هام جداً: ضع هنا رابط موقع الزبائن الذي قمت برفعه
-export const CUSTOMER_SITE_URL = ""; 
-
 export const hashPass = str => {
     let hash = 0;
     for (let i = 0; i < str.length; i++) {
